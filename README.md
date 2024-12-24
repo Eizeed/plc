@@ -12,3 +12,5 @@ pcl [PATH] [FILE EXTENSION]
 features:
 Using .gitignore file for better filtering files you want to count
 Hidden files aka files starting with . are ignored by default
+Trimming file as string
+Deleting all "unnecessary" new lines aka '\n'
