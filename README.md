@@ -7,10 +7,10 @@ Roadmap:
 3) Make debug flag to show all outputs through programm
 
 How to use:
-pcl [PATH] [FILE EXTENSION]
+    pcl [PATH] [FILE EXTENSION]
 
 features:
-Using .gitignore file for better filtering files you want to count
-Hidden files aka files starting with . are ignored by default
-Trimming file as string
-Deleting all "unnecessary" new lines aka '\n'
+1) Using .gitignore file for better filtering files you want to count
+2) Hidden files aka files starting with . are ignored by default
+3) Trimming file as string
+4) Deleting all "unnecessary" new lines aka '\n'
