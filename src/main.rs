@@ -1,8 +1,5 @@
 use std::{fs, path::{Path, PathBuf}};
 
-mod some_file;
-mod test;
-
 use clap::Parser;
 use env_logger::Builder;
 use regex::Regex;
@@ -100,8 +97,6 @@ fn count_lines(file: &Path) -> usize {
 }
 
 fn main() {
-
-
     let cli = Cli::parse();
 
     if cli.verbose {
