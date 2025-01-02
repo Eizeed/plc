@@ -1,5 +1,4 @@
 # Project line counter
-## cli-tool to count lines in your projects
 
 ### Roadmap:
 1. Make better gitignore algo to use several gitignore files for certain folders
