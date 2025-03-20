@@ -6,10 +6,13 @@
 3. Make debug flag to show all outputs through programm
 
 ### How to use:<br>
-    plc [PATH] [FILE EXTENSION]
+    plc -p <PATH> -e <FILE EXTENSION>
+
+## Default behavior
+it will use directory where it was called with extension `.rs`
 
 ### features:
 1. Using .gitignore file for better filtering files you want to count
 2. Hidden files aka files starting with . are ignored by default
-3. Trimming file as string
-4. Deleting all "unnecessary" new lines aka '\n'
+3. Removing all comments/documentation
+4. Deleting all "unnecessary" \n
