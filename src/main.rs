@@ -8,8 +8,10 @@ use std::{
     path::{Path, PathBuf},
 };
 
-thread_local! { 
-    static HIDDEN: Cell<bool> = Cell::new(false); 
+thread_local! {
+    static HIDDEN: Cell<bool> = Cell::new(false);
+    static DOCS: Cell<bool> = Cell::new(false);
+    static COMMENTS: Cell<bool> = Cell::new(false);
 }
 
 #[derive(Parser)]
@@ -26,6 +28,12 @@ pub struct Cli {
 
     #[arg(short = 'a', long = "hidden")]
     hidden: bool,
+
+    #[arg(short = 'd', long = "docs")]
+    docs: bool,
+
+    #[arg(short = 'c', long = "comments")]
+    comments: bool,
 }
 
 fn get_gitignore(dir: &Path) -> Vec<String> {
@@ -119,7 +127,6 @@ fn visit_dir<'a>(
         gitignore_map.remove(&path.to_path_buf());
     } else {
         // Can get here only if user provide path which is not directory
-
         if path.file_name().unwrap().to_str().unwrap().ends_with(ext) {
             log::debug!("Good file with good ext");
             log::debug!("Filename name {:?}", path.file_name().unwrap());
@@ -130,31 +137,66 @@ fn visit_dir<'a>(
     }
     log::info!("Getting out of {:?}", path.file_name());
     log::info!("Total lines in {:?}: {}\n", path.file_name(), lines);
+
     Ok(lines)
 }
 
 fn count_lines(file: &Path) -> usize {
     let file_str = fs::read_to_string(file).unwrap();
 
-    let new_lines_re = Regex::new(r#"\n{2,}"#).unwrap();
-    let multi_comment = Regex::new(r#"\s*/\*[\s\S]*?\*/"#).unwrap();
-    let single_comment = Regex::new(r#"\s*//.*"#).unwrap();
-    let first_re = Regex::new(r#"^\n"#).unwrap();
-    // let multi_doc = Regex::new(r#"^\s*/\*\*[\s\S]*?\*/\s*"#).unwrap();
-    // let single_doc = Regex::new(r#"^\s*///[\s\S]*?\*/\s*"#).unwrap();
-    // let crate_doc = Regex::new(r#"\s*//!.*"#).unwrap();
+    let mut lines = file_str.lines().collect::<Vec<&str>>();
 
-    let file_str = multi_comment.replace_all(&file_str, "");
-    let file_str = single_comment.replace_all(&file_str, "");
-    let file_str = new_lines_re.replace_all(&file_str, "\n");
-    let file_str = first_re.replace_all(&file_str, "");
+    let mut i = 0;
+    let mut in_multi_comment = false;
+    while i < lines.len() {
+        let line = lines[i].trim();
+        if line.is_empty() {
+            lines.remove(i);
+            continue;
+        }
 
-    log::info!(
-        "Lines in {:?}: {}",
-        file.file_name(),
-        file_str.lines().count()
-    );
-    file_str.lines().count()
+        if !COMMENTS.get() {
+            if line.len() < 2 && !in_multi_comment {
+                i += 1;
+                continue;
+            }
+
+            if in_multi_comment {
+                if line.len() >= 2 && line[line.len() - 2..=line.len() - 1] == *"*/" {
+                    in_multi_comment = false;
+                }
+
+                lines.remove(i);
+
+                continue;
+            }
+
+            if line[0..=1] == *"/*" {
+                lines.remove(i);
+                in_multi_comment = true;
+                continue;
+            }
+
+            if line[0..=1] == *"//" && line.chars().nth(2) != Some('/') {
+                lines.remove(i);
+                continue;
+            }
+        }
+
+        if !DOCS.get() {
+            if line.len() >= 3 && (line[0..=2] == *"///" || line[0..=2] == *"//!") {
+                lines.remove(i);
+                continue;
+            }
+        }
+
+        i += 1;
+    }
+
+    // println!("{}", lines.join("\n"));
+
+    log::info!("Lines in {:?}: {}", file.file_name(), lines.len());
+    lines.len()
 }
 
 fn main() {
@@ -187,6 +229,8 @@ fn main() {
     };
 
     HIDDEN.set(cli.hidden);
+    DOCS.set(cli.docs);
+    COMMENTS.set(cli.comments);
 
     log::info!("Path: {}", path.to_str().unwrap());
     log::info!("File extension: {}", ext);
