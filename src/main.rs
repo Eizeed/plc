@@ -2,10 +2,15 @@ use clap::Parser;
 use env_logger::Builder;
 use regex::Regex;
 use std::{
+    cell::Cell,
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
 };
+
+thread_local! { 
+    static HIDDEN: Cell<bool> = Cell::new(false); 
+}
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -18,6 +23,9 @@ pub struct Cli {
 
     #[arg(short, long)]
     verbose: bool,
+
+    #[arg(short = 'a', long = "hidden")]
+    hidden: bool,
 }
 
 fn get_gitignore(dir: &Path) -> Vec<String> {
@@ -72,14 +80,17 @@ fn visit_dir<'a>(
             let entry = entry?;
             let path = entry.path();
 
-            if path
-                .file_name()
-                .unwrap_or_default()
-                .to_str()
-                .unwrap_or("")
-                .starts_with('.')
+            if !HIDDEN.get()
+                && path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_str()
+                    .unwrap_or("")
+                    .starts_with('.')
             {
-                continue;
+                {
+                    continue;
+                }
             }
 
             let contains = gitignore_map.iter().any(|(_k, v)| {
@@ -108,7 +119,7 @@ fn visit_dir<'a>(
         gitignore_map.remove(&path.to_path_buf());
     } else {
         // Can get here only if user provide path which is not directory
-        
+
         if path.file_name().unwrap().to_str().unwrap().ends_with(ext) {
             log::debug!("Good file with good ext");
             log::debug!("Filename name {:?}", path.file_name().unwrap());
@@ -174,6 +185,8 @@ fn main() {
         Some(ext) => ext,
         None => ".rs".to_string(),
     };
+
+    HIDDEN.set(cli.hidden);
 
     log::info!("Path: {}", path.to_str().unwrap());
     log::info!("File extension: {}", ext);
