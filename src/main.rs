@@ -17,8 +17,8 @@ thread_local! {
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Cli {
-    #[arg(short = 'e', long = "extension")]
-    extension: Option<String>,
+    #[arg(short = 'e', long = "extension", num_args = 1..)]
+    extension: Option<Vec<String>>,
 
     #[arg(short = 'p', long = "path")]
     path: Option<PathBuf>,
@@ -66,7 +66,7 @@ fn get_gitignore(dir: &Path) -> Vec<String> {
 
 fn visit_dir<'a>(
     path: &Path,
-    ext: &str,
+    ext: &[&str],
     gitignore_map: &mut HashMap<PathBuf, Vec<String>>,
 ) -> std::io::Result<usize> {
     let mut lines = 0usize;
@@ -104,7 +104,6 @@ fn visit_dir<'a>(
             let contains = gitignore_map.iter().any(|(_k, v)| {
                 v.contains(&path.file_name().unwrap().to_str().unwrap().to_string())
             });
-
             if contains {
                 log::info!("Ignored file: {:?}", path.file_name().unwrap());
                 continue;
@@ -114,7 +113,14 @@ fn visit_dir<'a>(
                 log::info!("Dir name {:?}", path.file_name().unwrap());
                 lines += visit_dir(&path, ext, gitignore_map)?;
             } else {
-                if path.file_name().unwrap().to_str().unwrap().ends_with(ext) {
+                let file_name = match path.file_name() {
+                    Some(file_name) => file_name.to_str().unwrap(),
+                    None => continue,
+                };
+
+                let contains = ext.iter().any(|ext| file_name.ends_with(ext));
+
+                if contains {
                     log::debug!("Good file with good ext");
                     log::debug!("Filename name {:?}", path.file_name().unwrap());
                     lines += count_lines(&path);
@@ -127,14 +133,10 @@ fn visit_dir<'a>(
         gitignore_map.remove(&path.to_path_buf());
     } else {
         // Can get here only if user provide path which is not directory
-        if path.file_name().unwrap().to_str().unwrap().ends_with(ext) {
-            log::debug!("Good file with good ext");
-            log::debug!("Filename name {:?}", path.file_name().unwrap());
-            lines += count_lines(&path);
-        } else {
-            panic!();
-        }
+        log::debug!("Filename name {:?}", path.file_name().unwrap());
+        lines += count_lines(&path);
     }
+
     log::info!("Getting out of {:?}", path.file_name());
     log::info!("Total lines in {:?}: {}\n", path.file_name(), lines);
 
@@ -224,8 +226,8 @@ fn main() {
     };
 
     let ext = match cli.extension {
-        Some(ext) => ext,
-        None => ".rs".to_string(),
+        Some(ref ext) => ext.iter().map(|s| s.as_str()).collect(),
+        None => vec![".rs"],
     };
 
     HIDDEN.set(cli.hidden);
@@ -233,7 +235,7 @@ fn main() {
     COMMENTS.set(cli.comments);
 
     log::info!("Path: {}", path.to_str().unwrap());
-    log::info!("File extension: {}", ext);
+    log::info!("File extensions: {}", ext.join(" "));
     let mut gitignore_map: HashMap<PathBuf, Vec<String>> = HashMap::new();
     let res = visit_dir(&path, &ext, &mut gitignore_map);
 
