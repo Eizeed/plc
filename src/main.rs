@@ -1,40 +1,21 @@
+use args::Args;
 use clap::Parser;
 use env_logger::Builder;
+use params::Params;
 use regex::Regex;
 use std::{
-    cell::Cell,
     collections::HashMap,
     fs,
+    io::{self, ErrorKind},
     path::{Path, PathBuf},
+    time::Instant,
 };
 
-thread_local! {
-    static HIDDEN: Cell<bool> = Cell::new(false);
-    static DOCS: Cell<bool> = Cell::new(false);
-    static COMMENTS: Cell<bool> = Cell::new(false);
-}
+mod code_stats;
+use code_stats::CodeStats;
 
-#[derive(Parser)]
-#[command(version, about, long_about = None)]
-pub struct Cli {
-    #[arg(short = 'e', long = "extension", num_args = 1..)]
-    extension: Option<Vec<String>>,
-
-    #[arg(short = 'p', long = "path")]
-    path: Option<PathBuf>,
-
-    #[arg(short, long)]
-    verbose: bool,
-
-    #[arg(short = 'a', long = "hidden")]
-    hidden: bool,
-
-    #[arg(short = 'd', long = "docs")]
-    docs: bool,
-
-    #[arg(short = 'c', long = "comments")]
-    comments: bool,
-}
+mod args;
+mod params;
 
 fn get_gitignore(dir: &Path) -> Vec<String> {
     let mut gitignore: Vec<String> = vec![];
@@ -64,21 +45,22 @@ fn get_gitignore(dir: &Path) -> Vec<String> {
     return gitignore;
 }
 
-fn visit_dir<'a>(
+fn visit_dir(
+    params: &Params,
     path: &Path,
-    ext: &[&str],
+    stats: &mut CodeStats,
     gitignore_map: &mut HashMap<PathBuf, Vec<String>>,
-) -> std::io::Result<usize> {
-    let mut lines = 0usize;
+) -> std::io::Result<()> {
     if path.is_dir() {
         log::debug!(
             "Old gitignore passed into {:?} dir: {:?}",
-            path.file_name(),
+            path,
             gitignore_map
         );
+
         let ignore_vec = get_gitignore(path);
         if ignore_vec.len() > 0 {
-            gitignore_map.insert(path.to_path_buf().clone(), get_gitignore(path));
+            gitignore_map.insert(path.to_path_buf().clone(), ignore_vec);
             log::debug!("Added new Gitignore in new dir: {:?}", gitignore_map);
         } else {
             log::debug!("No gitignore in dir: {:?}", path.file_name());
@@ -86,65 +68,73 @@ fn visit_dir<'a>(
 
         for entry in fs::read_dir(path)? {
             let entry = entry?;
-            let path = entry.path();
+            let entry_path: &Path = &entry.path();
 
-            if !HIDDEN.get()
+            if !params.hidden()
                 && path
                     .file_name()
-                    .unwrap_or_default()
+                    .ok_or(io::Error::from(ErrorKind::InvalidData))?
                     .to_str()
-                    .unwrap_or("")
+                    .ok_or(io::Error::from(ErrorKind::InvalidData))?
                     .starts_with('.')
             {
-                {
-                    continue;
-                }
-            }
-
-            let contains = gitignore_map.iter().any(|(_k, v)| {
-                v.contains(&path.file_name().unwrap().to_str().unwrap().to_string())
-            });
-            if contains {
-                log::info!("Ignored file: {:?}", path.file_name().unwrap());
                 continue;
             }
 
-            if path.is_dir() {
-                log::info!("Dir name {:?}", path.file_name().unwrap());
-                lines += visit_dir(&path, ext, gitignore_map)?;
+            let contains = gitignore_map.iter().any(|(_k, v)| {
+                v.contains(
+                    &entry_path
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .to_string(),
+                )
+            });
+            if contains {
+                log::info!("Ignored file: {:?}", entry_path.file_name().unwrap());
+                continue;
+            }
+
+            if entry_path.is_dir() {
+                log::info!("Dir name {:?}", entry_path.file_name().unwrap());
+                visit_dir(params, &entry_path, stats, gitignore_map)?;
             } else {
-                let file_name = match path.file_name() {
+                let file_name = match entry_path.file_name() {
                     Some(file_name) => file_name.to_str().unwrap(),
                     None => continue,
                 };
 
-                let contains = ext.iter().any(|ext| file_name.ends_with(ext));
+                let contains = params
+                    .extensions()
+                    .iter()
+                    .any(|ext| file_name.ends_with(ext));
 
                 if contains {
                     log::debug!("Good file with good ext");
-                    log::debug!("Filename name {:?}", path.file_name().unwrap());
-                    lines += count_lines(&path);
+                    log::debug!("Filename name {:?}", entry_path.file_name().unwrap());
+                    count_lines(&entry_path, params, stats);
                 } else {
                     continue;
                 }
             }
-            log::info!("Total amount of lines: {}\n", &lines);
+            log::info!("Total amount of lines: {}\n", &stats.loc());
         }
         gitignore_map.remove(&path.to_path_buf());
     } else {
         // Can get here only if user provide path which is not directory
         log::debug!("Filename name {:?}", path.file_name().unwrap());
-        lines += count_lines(&path);
+        count_lines(path, params, stats);
     }
 
     log::info!("Getting out of {:?}", path.file_name());
-    log::info!("Total lines in {:?}: {}\n", path.file_name(), lines);
+    log::info!("Total lines in {:?}: {}\n", path.file_name(), stats.loc());
 
-    Ok(lines)
+    Ok(())
 }
 
-fn count_lines(file: &Path) -> usize {
-    let file_str = fs::read_to_string(file).unwrap();
+fn count_lines(path: &Path, p: &Params, stats: &mut CodeStats) {
+    let file_str = fs::read_to_string(path).unwrap();
 
     let mut lines = file_str.lines().collect::<Vec<&str>>();
 
@@ -152,12 +142,13 @@ fn count_lines(file: &Path) -> usize {
     let mut in_multi_comment = false;
     while i < lines.len() {
         let line = lines[i].trim();
+
         if line.is_empty() {
             lines.remove(i);
             continue;
         }
 
-        if !COMMENTS.get() {
+        if !p.comments() {
             if line.len() < 2 && !in_multi_comment {
                 i += 1;
                 continue;
@@ -168,25 +159,53 @@ fn count_lines(file: &Path) -> usize {
                     in_multi_comment = false;
                 }
 
+                if lines[i].contains("TODO") {
+                    stats.add_todo(1);
+                }
+                if lines[i].contains("FIXME") {
+                    stats.add_fixme(1);
+                }
+
                 lines.remove(i);
 
                 continue;
             }
 
             if line[0..=1] == *"/*" {
+                if lines[i].contains("TODO") {
+                    stats.add_todo(1);
+                }
+                if lines[i].contains("FIXME") {
+                    stats.add_fixme(1);
+                }
+
                 lines.remove(i);
                 in_multi_comment = true;
                 continue;
             }
 
             if line[0..=1] == *"//" && line.chars().nth(2) != Some('/') {
+                if lines[i].contains("TODO") {
+                    stats.add_todo(1);
+                }
+                if lines[i].contains("FIXME") {
+                    stats.add_fixme(1);
+                }
+
                 lines.remove(i);
                 continue;
             }
         }
 
-        if !DOCS.get() {
+        if !p.docs() {
             if line.len() >= 3 && (line[0..=2] == *"///" || line[0..=2] == *"//!") {
+                if lines[i].contains("TODO") {
+                    stats.add_todo(1);
+                }
+                if lines[i].contains("FIXME") {
+                    stats.add_fixme(1);
+                }
+
                 lines.remove(i);
                 continue;
             }
@@ -197,50 +216,39 @@ fn count_lines(file: &Path) -> usize {
 
     // println!("{}", lines.join("\n"));
 
-    log::info!("Lines in {:?}: {}", file.file_name(), lines.len());
-    lines.len()
+    log::info!("Lines in {:?}: {}", p.path().file_name(), lines.len());
+    stats.add_loc(lines.len());
 }
 
 fn main() {
-    let cli = Cli::parse();
+    let args = Args::parse();
 
-    if cli.verbose {
-        Builder::new()
-            .filter(None, log::LevelFilter::Info)
-            // .format(|buf, record| {
-            //     let info_style = buf.default_level_style(log::Level::Info);
-            //     writeln!(
-            //         buf,
-            //         "INFO: {info_style:#}{}{info_style}",
-            //         record.args()
-            //     )
-            // })
-            .init();
+    let params = Params::from(args);
+    let mut code_stats = CodeStats::new();
+
+    log::info!("Path: {}", params.path().to_str().unwrap());
+    log::info!("File extensions: {}", params.extensions().join(" "));
+
+    if params.verbose() {
+        Builder::new().filter(None, log::LevelFilter::Info).init();
     } else {
         Builder::new().filter(None, log::LevelFilter::Off).init();
     }
 
-    let path = match cli.path {
-        Some(path) => path,
-        None => std::env::current_dir().expect("Invalid directory"),
-    };
-
-    let ext = match cli.extension {
-        Some(ref ext) => ext.iter().map(|s| s.as_str()).collect(),
-        None => vec![".rs"],
-    };
-
-    HIDDEN.set(cli.hidden);
-    DOCS.set(cli.docs);
-    COMMENTS.set(cli.comments);
-
-    log::info!("Path: {}", path.to_str().unwrap());
-    log::info!("File extensions: {}", ext.join(" "));
     let mut gitignore_map: HashMap<PathBuf, Vec<String>> = HashMap::new();
-    let res = visit_dir(&path, &ext, &mut gitignore_map);
+    let _elapsed = Instant::now();
+    let res = visit_dir(&params, params.path(), &mut code_stats, &mut gitignore_map);
 
     match res {
-        Ok(lines) => println!("{}", lines),
+        Ok(_) => {
+            println!("{}", code_stats.loc());
+            if params.todo() {
+                println!("todos: {}", code_stats.todo())
+            }
+            if params.fixme() {
+                println!("fixmes: {}", code_stats.fixme())
+            }
+        }
         Err(e) => println!("{}", e),
     }
 }
