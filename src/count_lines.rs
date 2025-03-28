@@ -13,6 +13,10 @@ pub fn count_lines(path: &Path, params: &Params, stats: &mut CodeStats) {
         let line = lines[i].trim();
 
         if line.is_empty() {
+            if params.ratio {
+                stats.add_empty_lines();
+            }
+
             lines.remove(i);
             continue;
         }
@@ -29,10 +33,14 @@ pub fn count_lines(path: &Path, params: &Params, stats: &mut CodeStats) {
                 }
 
                 if lines[i].contains("TODO") {
-                    stats.add_todo(1);
+                    stats.add_todo();
                 }
                 if lines[i].contains("FIXME") {
-                    stats.add_fixme(1);
+                    stats.add_fixme();
+                }
+
+                if params.ratio {
+                    stats.add_comments();
                 }
 
                 lines.remove(i);
@@ -42,10 +50,14 @@ pub fn count_lines(path: &Path, params: &Params, stats: &mut CodeStats) {
 
             if line[0..=1] == *"/*" {
                 if lines[i].contains("TODO") {
-                    stats.add_todo(1);
+                    stats.add_todo();
                 }
                 if lines[i].contains("FIXME") {
-                    stats.add_fixme(1);
+                    stats.add_fixme();
+                }
+
+                if params.ratio {
+                    stats.add_comments();
                 }
 
                 lines.remove(i);
@@ -55,10 +67,14 @@ pub fn count_lines(path: &Path, params: &Params, stats: &mut CodeStats) {
 
             if line[0..=1] == *"//" && line.chars().nth(2) != Some('/') {
                 if lines[i].contains("TODO") {
-                    stats.add_todo(1);
+                    stats.add_todo();
                 }
                 if lines[i].contains("FIXME") {
-                    stats.add_fixme(1);
+                    stats.add_fixme();
+                }
+
+                if params.ratio {
+                    stats.add_comments();
                 }
 
                 lines.remove(i);
@@ -69,10 +85,14 @@ pub fn count_lines(path: &Path, params: &Params, stats: &mut CodeStats) {
         if !params.docs {
             if line.len() >= 3 && (line[0..=2] == *"///" || line[0..=2] == *"//!") {
                 if lines[i].contains("TODO") {
-                    stats.add_todo(1);
+                    stats.add_todo();
                 }
                 if lines[i].contains("FIXME") {
-                    stats.add_fixme(1);
+                    stats.add_fixme();
+                }
+
+                if params.ratio {
+                    stats.add_docs();
                 }
 
                 lines.remove(i);
@@ -82,20 +102,20 @@ pub fn count_lines(path: &Path, params: &Params, stats: &mut CodeStats) {
 
         if params.units {
             if line.starts_with("struct ") || line.starts_with("pub struct ") {
-                stats.add_structs(1);
+                stats.add_structs();
             }
             if line.starts_with("fn ")
                 || line.starts_with("async fn ")
                 || line.starts_with("pub fn ")
                 || line.starts_with("pub async fn ")
             {
-                stats.add_fns(1);
+                stats.add_fns();
             }
             if line.starts_with("impl ") {
-                stats.add_impls(1);
+                stats.add_impls();
             }
             if line.starts_with("macro_rules!") {
-                stats.add_macros(1);
+                stats.add_macros();
             }
         }
 

@@ -30,4 +30,7 @@ pub struct Args {
 
     #[arg(short = 'u', long = "units")]
     pub units: bool,
+
+    #[arg(short = 'r', long = "ratio")]
+    pub ratio: bool,
 }
