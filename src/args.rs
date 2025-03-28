@@ -13,7 +13,7 @@ pub struct Args {
     #[arg(short, long)]
     pub verbose: bool,
 
-    #[arg(short = 'h', long = "hidden")]
+    #[arg(short = 'a', long = "hidden")]
     pub hidden: bool,
 
     #[arg(short = 'd', long = "docs")]
