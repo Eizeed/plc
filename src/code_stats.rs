@@ -7,6 +7,20 @@ pub struct CodeStats {
     fns: usize,
     impls: usize,
     macros: usize,
+    comments: usize,
+    docs: usize,
+    empty_lines: usize,
+}
+
+macro_rules! getter_setter {
+    ($field_name:ident, $setter:ident) => {
+        pub fn $field_name(&self) -> usize {
+            self.$field_name
+        }
+        pub fn $setter(&mut self) {
+            self.$field_name += 1;
+        }
+    };
 }
 
 impl CodeStats {
@@ -18,55 +32,18 @@ impl CodeStats {
         self.loc += lines;
     }
 
-    pub fn add_todo(&mut self, lines: usize) {
-        self.todo += lines;
-    }
-
-    pub fn add_fixme(&mut self, lines: usize) {
-        self.fixme += lines;
-    }
-
-    pub fn add_structs(&mut self, lines: usize) {
-        self.structs += lines;
-    }
-
-    pub fn add_fns(&mut self, lines: usize) {
-        self.fns += lines;
-    }
-
-    pub fn add_impls(&mut self, lines: usize) {
-        self.impls += lines;
-    }
-
-    pub fn add_macros(&mut self, lines: usize) {
-        self.macros += lines;
-    }
-
     pub fn loc(&self) -> usize {
         self.loc
     }
 
-    pub fn todo(&self) -> usize {
-        self.todo
-    }
-
-    pub fn fixme(&self) -> usize {
-        self.fixme
-    }
-
-    pub fn structs(&self) -> usize {
-        self.structs
-    }
-
-    pub fn fns(&self) -> usize {
-        self.fns
-    }
-
-    pub fn impls(&self) -> usize {
-        self.impls
-    }
-
-    pub fn macros(&self) -> usize {
-        self.macros
-    }
+    getter_setter!(todo, add_todo);
+    getter_setter!(fixme, add_fixme);
+    getter_setter!(structs, add_structs);
+    getter_setter!(fns, add_fns);
+    getter_setter!(impls, add_impls);
+    getter_setter!(macros, add_macros);
+    getter_setter!(comments, add_comments);
+    getter_setter!(docs, add_docs);
+    getter_setter!(empty_lines, add_empty_lines);
 }
+

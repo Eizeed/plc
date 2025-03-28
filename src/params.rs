@@ -12,6 +12,7 @@ pub struct Params {
     pub fixme: bool,
     pub todo: bool,
     pub units: bool,
+    pub ratio: bool,
 }
 
 impl<'a> From<Args> for Params {
@@ -38,6 +39,7 @@ impl<'a> From<Args> for Params {
             fixme: value.fixme,
             todo: value.todo,
             units,
+            ratio: value.ratio,
         }
     }
 }
