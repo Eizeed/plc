@@ -1,53 +1,17 @@
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::{env, path::PathBuf};
 
 use crate::args::Args;
 
 pub struct Params {
-    extensions: Vec<String>,
-    path: PathBuf,
-    verbose: bool,
-    hidden: bool,
-    docs: bool,
-    comments: bool,
-    fixme: bool,
-    todo: bool,
-}
-
-impl Params {
-    pub fn extensions(&self) -> &[String] {
-        &self.extensions
-    }
-
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
-    pub fn verbose(&self) -> bool {
-        self.verbose
-    }
-
-    pub fn hidden(&self) -> bool {
-        self.hidden
-    }
-
-    pub fn docs(&self) -> bool {
-        self.docs
-    }
-
-    pub fn comments(&self) -> bool {
-        self.comments
-    }
-
-    pub fn fixme(&self) -> bool {
-        self.fixme
-    }
-
-    pub fn todo(&self) -> bool {
-        self.todo
-    }
+    pub extensions: Vec<String>,
+    pub path: PathBuf,
+    pub verbose: bool,
+    pub hidden: bool,
+    pub docs: bool,
+    pub comments: bool,
+    pub fixme: bool,
+    pub todo: bool,
+    pub units: bool,
 }
 
 impl<'a> From<Args> for Params {
@@ -62,6 +26,8 @@ impl<'a> From<Args> for Params {
             None => env::current_dir().expect("Provided path is invalid"),
         };
 
+        let units = extensions.iter().find(|str| *str == ".rs").is_some() && value.units;
+
         Self {
             extensions,
             path,
@@ -71,6 +37,7 @@ impl<'a> From<Args> for Params {
             comments: value.comments,
             fixme: value.fixme,
             todo: value.todo,
+            units,
         }
     }
 }

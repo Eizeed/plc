@@ -13,7 +13,7 @@ pub struct Args {
     #[arg(short, long)]
     pub verbose: bool,
 
-    #[arg(short = 'a', long = "hidden")]
+    #[arg(short = 'h', long = "hidden")]
     pub hidden: bool,
 
     #[arg(short = 'd', long = "docs")]
@@ -27,4 +27,7 @@ pub struct Args {
 
     #[arg(short = 't', long = "todo")]
     pub todo: bool,
+
+    #[arg(short = 'u', long = "units")]
+    pub units: bool,
 }
