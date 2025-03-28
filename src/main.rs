@@ -1,5 +1,6 @@
 use args::Args;
 use clap::Parser;
+use count_lines::count_lines;
 use env_logger::Builder;
 use params::Params;
 use regex::Regex;
@@ -15,6 +16,7 @@ mod code_stats;
 use code_stats::CodeStats;
 
 mod args;
+mod count_lines;
 mod params;
 
 fn get_gitignore(dir: &Path) -> Vec<String> {
@@ -70,7 +72,7 @@ fn visit_dir(
             let entry = entry?;
             let entry_path: &Path = &entry.path();
 
-            if !params.hidden()
+            if !params.hidden
                 && path
                     .file_name()
                     .ok_or(io::Error::from(ErrorKind::InvalidData))?
@@ -81,7 +83,7 @@ fn visit_dir(
                 continue;
             }
 
-            let contains = gitignore_map.iter().any(|(_k, v)| {
+            let should_ignore = gitignore_map.iter().any(|(_k, v)| {
                 v.contains(
                     &entry_path
                         .file_name()
@@ -91,7 +93,7 @@ fn visit_dir(
                         .to_string(),
                 )
             });
-            if contains {
+            if should_ignore {
                 log::info!("Ignored file: {:?}", entry_path.file_name().unwrap());
                 continue;
             }
@@ -105,12 +107,8 @@ fn visit_dir(
                     None => continue,
                 };
 
-                let contains = params
-                    .extensions()
-                    .iter()
-                    .any(|ext| file_name.ends_with(ext));
-
-                if contains {
+                let matching_ext = params.extensions.iter().any(|ext| file_name.ends_with(ext));
+                if matching_ext {
                     log::debug!("Good file with good ext");
                     log::debug!("Filename name {:?}", entry_path.file_name().unwrap());
                     count_lines(&entry_path, params, stats);
@@ -133,120 +131,39 @@ fn visit_dir(
     Ok(())
 }
 
-fn count_lines(path: &Path, p: &Params, stats: &mut CodeStats) {
-    let file_str = fs::read_to_string(path).unwrap();
-
-    let mut lines = file_str.lines().collect::<Vec<&str>>();
-
-    let mut i = 0;
-    let mut in_multi_comment = false;
-    while i < lines.len() {
-        let line = lines[i].trim();
-
-        if line.is_empty() {
-            lines.remove(i);
-            continue;
-        }
-
-        if !p.comments() {
-            if line.len() < 2 && !in_multi_comment {
-                i += 1;
-                continue;
-            }
-
-            if in_multi_comment {
-                if line.len() >= 2 && line[line.len() - 2..=line.len() - 1] == *"*/" {
-                    in_multi_comment = false;
-                }
-
-                if lines[i].contains("TODO") {
-                    stats.add_todo(1);
-                }
-                if lines[i].contains("FIXME") {
-                    stats.add_fixme(1);
-                }
-
-                lines.remove(i);
-
-                continue;
-            }
-
-            if line[0..=1] == *"/*" {
-                if lines[i].contains("TODO") {
-                    stats.add_todo(1);
-                }
-                if lines[i].contains("FIXME") {
-                    stats.add_fixme(1);
-                }
-
-                lines.remove(i);
-                in_multi_comment = true;
-                continue;
-            }
-
-            if line[0..=1] == *"//" && line.chars().nth(2) != Some('/') {
-                if lines[i].contains("TODO") {
-                    stats.add_todo(1);
-                }
-                if lines[i].contains("FIXME") {
-                    stats.add_fixme(1);
-                }
-
-                lines.remove(i);
-                continue;
-            }
-        }
-
-        if !p.docs() {
-            if line.len() >= 3 && (line[0..=2] == *"///" || line[0..=2] == *"//!") {
-                if lines[i].contains("TODO") {
-                    stats.add_todo(1);
-                }
-                if lines[i].contains("FIXME") {
-                    stats.add_fixme(1);
-                }
-
-                lines.remove(i);
-                continue;
-            }
-        }
-
-        i += 1;
-    }
-
-    // println!("{}", lines.join("\n"));
-
-    log::info!("Lines in {:?}: {}", p.path().file_name(), lines.len());
-    stats.add_loc(lines.len());
-}
-
 fn main() {
     let args = Args::parse();
 
     let params = Params::from(args);
     let mut code_stats = CodeStats::new();
 
-    log::info!("Path: {}", params.path().to_str().unwrap());
-    log::info!("File extensions: {}", params.extensions().join(" "));
+    log::info!("Path: {}", params.path.to_str().unwrap());
+    log::info!("File extensions: {}", params.extensions.join(" "));
 
-    if params.verbose() {
+    if params.verbose {
         Builder::new().filter(None, log::LevelFilter::Info).init();
     } else {
         Builder::new().filter(None, log::LevelFilter::Off).init();
     }
 
     let mut gitignore_map: HashMap<PathBuf, Vec<String>> = HashMap::new();
-    let _elapsed = Instant::now();
-    let res = visit_dir(&params, params.path(), &mut code_stats, &mut gitignore_map);
+    let _start = Instant::now();
+    let res = visit_dir(&params, &params.path, &mut code_stats, &mut gitignore_map);
 
     match res {
         Ok(_) => {
             println!("{}", code_stats.loc());
-            if params.todo() {
+            if params.todo {
                 println!("todos: {}", code_stats.todo())
             }
-            if params.fixme() {
+            if params.fixme {
                 println!("fixmes: {}", code_stats.fixme())
+            }
+            if params.units {
+                println!("structs: {}", code_stats.structs());
+                println!("functions: {}", code_stats.fns());
+                println!("impl blocks: {}", code_stats.impls());
+                println!("macros: {}", code_stats.macros());
             }
         }
         Err(e) => println!("{}", e),
