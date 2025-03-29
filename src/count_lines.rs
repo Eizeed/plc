@@ -84,6 +84,7 @@ pub fn count_lines(path: &Path, params: &Params, stats: &mut CodeStats) {
 
         if !params.docs {
             if line.len() >= 3 && (line[0..=2] == *"///" || line[0..=2] == *"//!") {
+                // println!("{:#?}", stats);
                 if lines[i].contains("TODO") {
                     stats.add_todo();
                 }
