@@ -13,6 +13,7 @@ pub struct Params {
     pub todo: bool,
     pub units: bool,
     pub ratio: bool,
+    pub json: bool,
 }
 
 impl<'a> From<Args> for Params {
@@ -34,12 +35,13 @@ impl<'a> From<Args> for Params {
             path,
             verbose: value.verbose,
             hidden: value.hidden,
-            docs: value.hidden,
+            docs: value.docs,
             comments: value.comments,
             fixme: value.fixme,
             todo: value.todo,
             units,
             ratio: value.ratio,
+            json: value.json,
         }
     }
 }

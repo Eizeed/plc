@@ -152,37 +152,7 @@ fn main() {
 
     match res {
         Ok(_) => {
-            println!("{}", code_stats.loc());
-            if params.todo {
-                println!("todos: {}", code_stats.todo())
-            }
-            if params.fixme {
-                println!("fixmes: {}", code_stats.fixme())
-            }
-            if params.units {
-                println!("structs: {}", code_stats.structs());
-                println!("functions: {}", code_stats.fns());
-                println!("impl blocks: {}", code_stats.impls());
-                println!("macros: {}", code_stats.macros());
-            }
-            if params.ratio {
-                let empty_lines = code_stats.empty_lines();
-                let comments = code_stats.comments();
-                let docs = code_stats.docs();
-                let loc = code_stats.loc();
-
-                let unit = (empty_lines + comments + docs + loc) as f64 / 100.0;
-                println!("units: {unit}");
-                let empty_lines_ratio = empty_lines as f64 / unit;
-                let comments_ratio = comments as f64 / unit;
-                let docs_ratio = docs as f64 / unit;
-                let loc_ratio = loc as f64 / unit;
-
-                println!("empty lines: {:.3}%", empty_lines_ratio);
-                println!("comments: {:.3}%", comments_ratio);
-                println!("docs: {:.3}%", docs_ratio);
-                println!("lines of code: {:.3}%", loc_ratio);
-            }
+            code_stats.print(&params);
         }
         Err(e) => println!("{}", e),
     }

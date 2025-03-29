@@ -33,4 +33,7 @@ pub struct Args {
 
     #[arg(short = 'r', long = "ratio")]
     pub ratio: bool,
+
+    #[arg(short = 'j', long = "json")]
+    pub json: bool,
 }
