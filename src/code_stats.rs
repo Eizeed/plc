@@ -42,6 +42,11 @@ impl CodeStats {
         let comments = self.comments();
         let docs = self.docs();
 
+        let unit = (comments + docs + (loc - comments - docs)) as f64 / 100.0;
+        let comments_ratio = comments as f64 / unit;
+        let docs_ratio = docs as f64 / unit;
+        let loc_ratio = (loc - comments - docs) as f64 / unit;
+
         if params.json {
             let mut res = String::from("{");
             res.push_str(&format!(r#""loc": {}"#, loc));
@@ -61,11 +66,6 @@ impl CodeStats {
             }
 
             if params.ratio {
-                let unit = (comments + docs + loc) as f64 / 100.0;
-                let comments_ratio = comments as f64 / unit;
-                let docs_ratio = docs as f64 / unit;
-                let loc_ratio = loc as f64 / unit;
-
                 if params.comments {
                     res.push_str(&format!(r#","comments_ratio": "{:.1}%""#, comments_ratio));
                 }
@@ -95,11 +95,6 @@ impl CodeStats {
             }
 
             if params.ratio {
-                let unit = (comments + docs + loc) as f64 / 100.0;
-                let comments_ratio = comments as f64 / unit;
-                let docs_ratio = docs as f64 / unit;
-                let loc_ratio = loc as f64 / unit;
-
                 if params.comments {
                     println!("comments: {:.1}%", comments_ratio);
                 }
