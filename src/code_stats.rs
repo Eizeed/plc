@@ -11,7 +11,6 @@ pub struct CodeStats {
     macros: usize,
     comments: usize,
     docs: usize,
-    empty_lines: usize,
 }
 
 macro_rules! getter_setter {
@@ -40,7 +39,6 @@ impl CodeStats {
         let impl_blocks = self.impls();
         let macros = self.macros();
 
-        let empty_lines = self.empty_lines();
         let comments = self.comments();
         let docs = self.docs();
 
@@ -63,19 +61,18 @@ impl CodeStats {
             }
 
             if params.ratio {
-                let unit = (empty_lines + comments + docs + loc) as f64 / 100.0;
-                let empty_lines_ratio = empty_lines as f64 / unit;
+                let unit = (comments + docs + loc) as f64 / 100.0;
                 let comments_ratio = comments as f64 / unit;
                 let docs_ratio = docs as f64 / unit;
                 let loc_ratio = loc as f64 / unit;
 
-                res.push_str(&format!(
-                    r#","empty_lines_ratio": "{:.3}%""#,
-                    empty_lines_ratio
-                ));
-                res.push_str(&format!(r#","comments_ratio": "{:.3}%""#, comments_ratio));
-                res.push_str(&format!(r#","docs_ratio": "{:.3}%""#, docs_ratio));
-                res.push_str(&format!(r#","loc_ratio": "{:.3}%""#, loc_ratio));
+                if params.comments {
+                    res.push_str(&format!(r#","comments_ratio": "{:.1}%""#, comments_ratio));
+                }
+                if params.docs {
+                    res.push_str(&format!(r#","docs_ratio": "{:.1}%""#, docs_ratio));
+                }
+                res.push_str(&format!(r#","loc_ratio": "{:.1}%""#, loc_ratio));
             }
 
             res.push('}');
@@ -98,16 +95,18 @@ impl CodeStats {
             }
 
             if params.ratio {
-                let unit = (empty_lines + comments + docs + loc) as f64 / 100.0;
-                let empty_lines_ratio = empty_lines as f64 / unit;
+                let unit = (comments + docs + loc) as f64 / 100.0;
                 let comments_ratio = comments as f64 / unit;
                 let docs_ratio = docs as f64 / unit;
                 let loc_ratio = loc as f64 / unit;
 
-                println!("empty lines: {}", empty_lines_ratio);
-                println!("comments: {}", comments_ratio);
-                println!("docs: {}", docs_ratio);
-                println!("loc: {}", loc_ratio);
+                if params.comments {
+                    println!("comments: {:.1}%", comments_ratio);
+                }
+                if params.docs {
+                    println!("docs: {:.1}%", docs_ratio);
+                }
+                println!("loc: {:.1}%", loc_ratio);
             }
         }
     }
@@ -128,5 +127,4 @@ impl CodeStats {
     getter_setter!(macros, add_macros);
     getter_setter!(comments, add_comments);
     getter_setter!(docs, add_docs);
-    getter_setter!(empty_lines, add_empty_lines);
 }
