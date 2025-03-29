@@ -28,6 +28,8 @@ check all files with given extensions.<br/>
 - `-c --comments` count comments
 - `-f --fixme` count FIXME comments as another instance
 - `-t --todo` count TODO comments as another instance
+- `-r --ratio` give ratio of comments, docs and actual code. `-c` and `-d` will affect ratio. If those flags are used, ratio will include them. Otherwise if no flags are used, it will always show 100% for loc
+- `-j --json` convert output to json
 
 ##### RUST SPECIFIC
 - `-u --units` count structures, functions, impl blocks and declarative macros. If `-u` is provided with any other extension it will be ignored and set to false.
